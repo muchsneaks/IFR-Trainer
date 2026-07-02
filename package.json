@@ -10,7 +10,7 @@
     "app": "electron .",
     "app:demo": "electron . --demo",
     "layout": "node msfs-addon/build-layout.js",
-    "dist": "npm run layout && electron-builder --win --x64",
+    "dist": "npm run layout && electron-builder --win --x64 --publish never",
     "dist:dir": "electron-builder --win --dir"
   },
   "keywords": [
@@ -57,14 +57,18 @@
       {
         "from": "msfs-addon",
         "to": "msfs-addon",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico"
