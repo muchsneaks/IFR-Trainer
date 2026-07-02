@@ -1,17 +1,24 @@
 name: Build Windows installer
 
-# Builds the double-click Windows installer (IFR-Trainer-Setup-x.y.z.exe) on a
-# Windows runner, so no local dev environment is needed. Download it from the
-# run's "Artifacts" section when the job finishes.
+# Builds the double-click Windows installer on a Windows runner and publishes
+# it as a GitHub Release asset, so end users just download one file and run it:
+#
+#   https://github.com/<owner>/<repo>/releases/download/ifr-trainer-latest/IFR-Trainer-Setup.exe
+#
+# (Also uploaded as a build artifact for logged-in downloads.)
 
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: write # needed to create/update the Release
+
 jobs:
   build-windows:
     runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,16 +39,31 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Upload installer
+      - name: Stage release assets (stable file names)
+        shell: bash
+        run: |
+          mkdir -p release
+          cp dist/*.exe "release/IFR-Trainer-Setup.exe"
+          cd msfs-addon && 7z a "../release/IFR-Trainer-MSFS-Addon.zip" joybuy-ifr-trainer >/dev/null
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: IFR-Trainer-Windows-Setup
-          path: dist/*.exe
+          path: release/*
           if-no-files-found: error
 
-      - name: Upload MSFS Community-folder add-on
-        uses: actions/upload-artifact@v4
+      - name: Publish GitHub Release (one-click download)
+        uses: softprops/action-gh-release@v2
         with:
-          name: IFR-Trainer-MSFS-Addon
-          path: msfs-addon/joybuy-ifr-trainer/**
-          if-no-files-found: error
+          tag_name: ifr-trainer-latest
+          name: IFR Trainer — latest build
+          body: |
+            Ready-to-run Windows installer for the IFR Trainer (MSFS 2024).
+
+            **Download `IFR-Trainer-Setup.exe` below and run it — that's it.**
+
+            `IFR-Trainer-MSFS-Addon.zip` contains the folder to copy into your
+            MSFS Community folder to show the map inside the sim toolbar.
+          files: release/*
+          fail_on_unmatched_files: true

@@ -16,6 +16,19 @@ It ships in **two forms**:
 Both show the *same* aircraft, track and navdata, because the desktop app is
 what feeds the in-sim panel.
 
+## ⬇️ Download & install (for users)
+
+Grab the ready-to-run installer — no development tools needed:
+
+**→ [Download IFR-Trainer-Setup.exe](../../releases/latest/download/IFR-Trainer-Setup.exe)**
+
+Run it, then launch **IFR Trainer**. To also show the map inside MSFS, download
+`IFR-Trainer-MSFS-Addon.zip` from the [latest release](../../releases/latest)
+and follow [Show the map inside MSFS](#show-the-map-inside-msfs-toolbar-panel).
+
+> The installer is built automatically by GitHub Actions on every push to
+> `main` and attached to the **ifr-trainer-latest** release.
+
 ![screenshot](docs/screenshot.png)
 
 ## Features
