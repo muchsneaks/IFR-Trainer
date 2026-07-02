@@ -1,0 +1,47 @@
+name: Build Windows installer
+
+# Builds the double-click Windows installer (IFR-Trainer-Setup-x.y.z.exe) on a
+# Windows runner, so no local dev environment is needed. Download it from the
+# run's "Artifacts" section when the job finishes.
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Generate MSFS add-on layout.json
+        run: npm run layout
+
+      - name: Build Windows installer
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: IFR-Trainer-Windows-Setup
+          path: dist/*.exe
+          if-no-files-found: error
+
+      - name: Upload MSFS Community-folder add-on
+        uses: actions/upload-artifact@v4
+        with:
+          name: IFR-Trainer-MSFS-Addon
+          path: msfs-addon/joybuy-ifr-trainer/**
+          if-no-files-found: error

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="/SCSS/common.css" />
+    <link rel="stylesheet" href="IFRTrainer.css" />
+
+    <script type="text/javascript" src="/JS/coherent.js"></script>
+    <script type="text/javascript" src="/JS/common.js"></script>
+    <script type="text/javascript" src="/JS/dataStorage.js"></script>
+    <script type="text/javascript" src="/JS/buttons.js"></script>
+    <script type="text/javascript" src="/JS/Services/ToolBarPanels.js"></script>
+    <script type="text/javascript" src="/Pages/VCockpit/Instruments/Shared/BaseInstrument.js"></script>
+
+    <link rel="import" href="/templates/NewPushButton/NewPushButton.html" />
+    <link rel="import" href="/templates/ToggleButton/toggleButton.html" />
+    <link rel="import" href="/templates/tabMenu/tabMenu.html" />
+    <link rel="import" href="/templates/ingameUi/ingameUi.html" />
+    <link rel="import" href="/templates/ingameUiHeader/ingameUiHeader.html" />
+
+    <script type="text/javascript" src="IFRTrainer.js"></script>
+</head>
+
+<body class="border-box">
+    <ingamepanel-ifrtrainer>
+        <ingame-ui id="IFRTrainer" panel-id="PANEL_IFR_TRAINER" title="IFR Trainer Map"
+                   class="ingameUiFrame panelInvisible" content-fit="true"
+                   min-width="360" min-height="260">
+            <div id="IFRTrainerWrap">
+                <iframe id="IFRTrainerIframe" src="" frameborder="0"></iframe>
+                <div id="IFRTrainerOffline">
+                    <div class="msg-title">IFR Trainer app not running</div>
+                    <div class="msg-body">
+                        Start the <b>IFR Trainer</b> desktop app on this PC,
+                        then reopen this panel.
+                    </div>
+                </div>
+            </div>
+        </ingame-ui>
+    </ingamepanel-ifrtrainer>
+</body>
+</html>

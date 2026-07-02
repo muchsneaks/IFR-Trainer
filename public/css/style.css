@@ -1,0 +1,213 @@
+:root {
+  --bg: #10141a;
+  --panel: rgba(16, 20, 26, 0.92);
+  --border: #2b3442;
+  --text: #dbe4ee;
+  --muted: #7f8ca0;
+  --accent: #38bdf8;
+  --track: #c800dc;
+  --ok: #34d399;
+  --bad: #f87171;
+  --chart-bg: #f4f1e8; /* enroute-chart paper tone */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  color: var(--text);
+  overflow: hidden;
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+  background: var(--chart-bg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Top data bar                                                        */
+/* ------------------------------------------------------------------ */
+
+#databar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 6px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(4px);
+  user-select: none;
+}
+
+#databar .brand {
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--accent);
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.datafield { display: flex; align-items: baseline; gap: 5px; }
+.datafield .label { font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+.datafield .value {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 18px;
+  font-weight: 600;
+  min-width: 3.2ch;
+  text-align: right;
+}
+.datafield .unit { font-size: 10px; color: var(--muted); }
+
+.conn {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 3px;
+}
+.conn.connected { color: #04220f; background: var(--ok); }
+.conn.disconnected { color: #2b0606; background: var(--bad); }
+.conn.demo { color: #241a02; background: #fbbf24; }
+
+/* ------------------------------------------------------------------ */
+/* Side panel                                                          */
+/* ------------------------------------------------------------------ */
+
+#panel {
+  position: absolute;
+  top: 90px;
+  right: 10px;
+  z-index: 1000;
+  width: 210px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 12px 10px;
+  backdrop-filter: blur(4px);
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+  user-select: none;
+}
+#panel.hidden { display: none; }
+
+#panel h3 {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 12px 0 6px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 3px;
+}
+
+#panel label {
+  display: block;
+  font-size: 12.5px;
+  margin: 4px 0;
+  cursor: pointer;
+}
+#panel select {
+  width: 100%;
+  margin-top: 3px;
+  background: #1b2330;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px;
+}
+
+#panel .row { display: flex; gap: 6px; }
+
+#panel button, #panel .button {
+  flex: 1;
+  background: #1b2330;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 12px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+}
+#panel button:hover, #panel .button:hover { border-color: var(--accent); color: var(--accent); }
+
+.muted { color: var(--muted); font-size: 11px; margin-top: 6px; }
+.hidden { display: none; }
+
+#panel-toggle {
+  position: absolute;
+  top: 52px;
+  right: 10px;
+  z-index: 999;
+  width: 34px;
+  height: 30px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Selected fix panel */
+.fix-name { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 5px; }
+.fixgrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin-bottom: 8px;
+}
+.fixgrid .label { font-size: 10px; color: var(--muted); align-self: center; }
+.fixgrid .value {
+  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-size: 14px;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------ */
+/* Map symbols (Leaflet divIcons)                                      */
+/* ------------------------------------------------------------------ */
+
+.navaid-icon { background: none; border: none; }
+
+.navaid-label {
+  position: absolute;
+  left: 100%;
+  margin-left: 3px;
+  top: -4px;
+  font-family: "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a3d8f;
+  white-space: nowrap;
+  text-shadow: 0 0 2px var(--chart-bg), 0 0 3px var(--chart-bg);
+  pointer-events: none;
+}
+.navaid-label .freq { display: block; font-weight: 400; font-size: 10px; }
+.wpt .navaid-label { color: #6b2fa8; }
+.apt .navaid-label { color: #1d6f42; }
+
+/* dark tile basemaps need light labels */
+.dark-base .navaid-label { color: #8ab4ff; text-shadow: 0 0 3px #000, 0 0 4px #000; }
+.dark-base .wpt .navaid-label { color: #d0a6ff; }
+.dark-base .apt .navaid-label { color: #7fe0a8; }
+
+.aircraft-icon { background: none; border: none; }
+
+.leaflet-container { font: inherit; }
+
+/* dim leaflet attribution on chart background */
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.6) !important;
+  font-size: 10px !important;
+}
