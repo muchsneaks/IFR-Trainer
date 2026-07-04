@@ -1,6 +1,6 @@
 {
   "name": "msfs-ifr-trainer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "IFR moving-map trainer for Microsoft Flight Simulator 2024. Live flight track on an IFR-style chart with VORs, NDBs, waypoints and airports read from the native MSFS facility database via SimConnect. Ships as a Windows desktop app and an in-sim MSFS toolbar panel.",
   "main": "electron/main.js",
   "author": "JoyBuy",

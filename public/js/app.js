@@ -202,6 +202,8 @@
     const bounds = map.getBounds().pad(0.3);
     for (const f of facilityStore[type]) {
       if (!bounds.contains([f.lat, f.lon])) continue;
+      // Pure ILS/LOC entries are drawn as feathers, not as VOR symbols.
+      if (type === 'VOR' && f.isLoc) continue;
       const marker = L.marker([f.lat, f.lon], {
         icon: IfrSymbols.facilityIcon(f, showLabels),
         keyboard: false,
@@ -213,8 +215,164 @@
 
   function renderAllFacilities() {
     Object.keys(facilityStore).forEach(renderFacilities);
+    renderIls();
+    renderRunways();
+    maybeRequestRunways();
   }
   map.on('moveend zoomend', renderAllFacilities);
+
+  // ------------------------------------------------------------------
+  // ILS feathers (from VOR-list entries flagged HAS_LOCALIZER)
+  // ------------------------------------------------------------------
+
+  const ilsGroup = L.layerGroup().addTo(map);
+  const ILS_MIN_ZOOM = 9;
+  const FEATHER_LEN_NM = 6;
+  const FEATHER_WIDTH_NM = 0.9;
+
+  function renderIls() {
+    ilsGroup.clearLayers();
+    if (!document.getElementById('lyr-ils').checked) return;
+    if (map.getZoom() < ILS_MIN_ZOOM) return;
+    const bounds = map.getBounds().pad(0.5);
+    const showLabels = document.getElementById('lyr-labels').checked;
+
+    for (const f of facilityStore.VOR) {
+      if (!f.isLoc || !Number.isFinite(f.locCourse)) continue;
+      if (!bounds.contains([f.lat, f.lon])) continue;
+      // Localizer course is magnetic; MSFS magVar is positive east
+      // (true = magnetic + var). Fall back to aircraft magvar.
+      const magVar = Number.isFinite(f.magVar)
+        ? f.magVar
+        : lastState && Number.isFinite(lastState.magVar)
+          ? lastState.magVar
+          : 0;
+      const courseTrue = (f.locCourse + magVar + 360) % 360;
+      const back = (courseTrue + 180) % 360;
+      // Feather: apex at the antenna, opening along the final approach track.
+      const tip = { lat: f.lat, lon: f.lon };
+      const endC = destination(f.lat, f.lon, back, FEATHER_LEN_NM);
+      const endL = destination(endC.lat, endC.lon, (back + 90) % 360, FEATHER_WIDTH_NM / 2);
+      const endR = destination(endC.lat, endC.lon, (back + 270) % 360, FEATHER_WIDTH_NM / 2);
+      const poly = L.polygon(
+        [
+          [tip.lat, tip.lon],
+          [endL.lat, endL.lon],
+          [endR.lat, endR.lon],
+        ],
+        {
+          color: '#1a3d8f',
+          weight: 1.2,
+          fillColor: '#1a3d8f',
+          fillOpacity: 0.12,
+          interactive: true,
+        }
+      );
+      poly.on('click', () => selectFix(f));
+      ilsGroup.addLayer(poly);
+      // Center line of the feather
+      ilsGroup.addLayer(
+        L.polyline(
+          [
+            [tip.lat, tip.lon],
+            [endC.lat, endC.lon],
+          ],
+          { color: '#1a3d8f', weight: 1, dashArray: '5 5', interactive: false }
+        )
+      );
+      if (showLabels) {
+        const labelPos = destination(f.lat, f.lon, back, FEATHER_LEN_NM * 0.75);
+        ilsGroup.addLayer(
+          L.marker([labelPos.lat, labelPos.lon], {
+            icon: L.divIcon({
+              className: 'navaid-icon',
+              html: `<span class="navaid-label ils-label">${f.ident} ${f.freq ? f.freq.toFixed(2) : ''}<span class="freq">${fmt3(f.locCourse)}°</span></span>`,
+              iconSize: [0, 0],
+            }),
+            keyboard: false,
+            interactive: false,
+          })
+        );
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Airport runway layouts (fetched on demand via SimConnect)
+  // ------------------------------------------------------------------
+
+  const runwayStore = new Map(); // icao -> runways[]
+  const requestedRunways = new Set();
+  const runwayGroup = L.layerGroup().addTo(map);
+  const RUNWAY_MIN_ZOOM = 10;
+
+  function maybeRequestRunways() {
+    if (map.getZoom() < RUNWAY_MIN_ZOOM) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const bounds = map.getBounds().pad(0.4);
+    for (const apt of facilityStore.AIRPORT) {
+      if (!bounds.contains([apt.lat, apt.lon])) continue;
+      if (requestedRunways.has(apt.ident)) continue;
+      requestedRunways.add(apt.ident);
+      ws.send(JSON.stringify({ type: 'getRunways', icao: apt.ident }));
+    }
+  }
+
+  function renderRunways() {
+    runwayGroup.clearLayers();
+    if (!document.getElementById('lyr-apt').checked) return;
+    const zoom = map.getZoom();
+    if (zoom < RUNWAY_MIN_ZOOM) return;
+    const bounds = map.getBounds().pad(0.3);
+
+    for (const [, runways] of runwayStore) {
+      for (const r of runways) {
+        if (!bounds.contains([r.lat, r.lon])) continue;
+        const halfLenNm = r.length / 1852 / 2;
+        const halfWidNm = Math.max(r.width, 30) / 1852 / 2; // keep visible
+        const e1 = destination(r.lat, r.lon, r.heading, halfLenNm);
+        const e2 = destination(r.lat, r.lon, (r.heading + 180) % 360, halfLenNm);
+        const perp = (r.heading + 90) % 360;
+        const corners = [
+          destination(e1.lat, e1.lon, perp, halfWidNm),
+          destination(e1.lat, e1.lon, (perp + 180) % 360, halfWidNm),
+          destination(e2.lat, e2.lon, (perp + 180) % 360, halfWidNm),
+          destination(e2.lat, e2.lon, perp, halfWidNm),
+        ].map((c) => [c.lat, c.lon]);
+        runwayGroup.addLayer(
+          L.polygon(corners, {
+            color: '#39404d',
+            weight: 1,
+            fillColor: '#39404d',
+            fillOpacity: 0.85,
+            interactive: false,
+          })
+        );
+        runwayGroup.addLayer(
+          L.polyline(
+            [
+              [e1.lat, e1.lon],
+              [e2.lat, e2.lon],
+            ],
+            { color: '#f5f5f5', weight: 1, dashArray: '6 6', interactive: false }
+          )
+        );
+        if (zoom >= 12 && r.name) {
+          runwayGroup.addLayer(
+            L.marker([e2.lat, e2.lon], {
+              icon: L.divIcon({
+                className: 'navaid-icon',
+                html: `<span class="navaid-label rwy-label">${r.name}</span>`,
+                iconSize: [0, 0],
+              }),
+              keyboard: false,
+              interactive: false,
+            })
+          );
+        }
+      }
+    }
+  }
 
   // ------------------------------------------------------------------
   // Selected fix (live bearing / radial / distance readout)
@@ -230,9 +388,19 @@
         ? `${f.freq.toFixed(1)} kHz`
         : `${f.freq.toFixed(2)} MHz`
       : '—';
-    document.getElementById('fix-name').textContent =
-      `${f.ident} (${f.type}${f.type === 'VOR' && f.hasDme ? '/DME' : ''})`;
+    let typeLabel = f.type;
+    if (f.type === 'VOR') {
+      typeLabel = f.isLoc
+        ? `ILS/LOC ${Number.isFinite(f.locCourse) ? fmt3(f.locCourse) + '°' : ''}`
+        : `VOR${f.hasDme ? '/DME' : ''}`;
+    }
+    document.getElementById('fix-name').textContent = `${f.ident} (${typeLabel})`;
     document.getElementById('fix-freq').textContent = freq;
+
+    // OBS / compass rose only makes sense for a real VOR.
+    const isVor = f.type === 'VOR' && !f.isLoc;
+    document.getElementById('fix-obs-row').classList.toggle('hidden', !isVor);
+    drawRose();
     updateFixInfo(lastState);
   }
 
@@ -240,8 +408,110 @@
     selectedFix = null;
     document.getElementById('fixinfo').classList.add('hidden');
     fixLine.setLatLngs([]);
+    roseGroup.clearLayers();
   }
   document.getElementById('btn-fix-clear').addEventListener('click', clearFix);
+
+  // ------------------------------------------------------------------
+  // VOR compass rose + OBS radial (raw-data training aid)
+  // ------------------------------------------------------------------
+
+  const roseGroup = L.layerGroup().addTo(map);
+  const ROSE_RADIUS_NM = 5;
+
+  function stationMagVar(f) {
+    if (Number.isFinite(f.magVar)) return f.magVar;
+    if (lastState && Number.isFinite(lastState.magVar)) return lastState.magVar;
+    return 0;
+  }
+
+  function drawRose() {
+    roseGroup.clearLayers();
+    const f = selectedFix;
+    if (!f || f.type !== 'VOR' || f.isLoc) return;
+
+    const magVar = stationMagVar(f);
+    const style = { color: '#5a6c8f', weight: 1, interactive: false };
+
+    // Rose ring
+    roseGroup.addLayer(
+      L.circle([f.lat, f.lon], {
+        radius: ROSE_RADIUS_NM * 1852,
+        fill: false,
+        ...style,
+      })
+    );
+    // Tick marks every 10° (magnetic), longer + labelled every 30°
+    for (let magDeg = 0; magDeg < 360; magDeg += 10) {
+      const trueDeg = (magDeg + magVar + 360) % 360;
+      const major = magDeg % 30 === 0;
+      const inner = destination(f.lat, f.lon, trueDeg, ROSE_RADIUS_NM * (major ? 0.86 : 0.93));
+      const outer = destination(f.lat, f.lon, trueDeg, ROSE_RADIUS_NM);
+      roseGroup.addLayer(
+        L.polyline(
+          [
+            [inner.lat, inner.lon],
+            [outer.lat, outer.lon],
+          ],
+          { ...style, weight: major ? 1.6 : 1 }
+        )
+      );
+      if (major) {
+        const lp = destination(f.lat, f.lon, trueDeg, ROSE_RADIUS_NM * 1.12);
+        roseGroup.addLayer(
+          L.marker([lp.lat, lp.lon], {
+            icon: L.divIcon({
+              className: 'navaid-icon',
+              html: `<span class="rose-label">${String(magDeg / 10).padStart(2, '0')}</span>`,
+              iconSize: [0, 0],
+            }),
+            keyboard: false,
+            interactive: false,
+          })
+        );
+      }
+    }
+
+    // OBS radial
+    const obs = Number(document.getElementById('fix-obs').value);
+    if (Number.isFinite(obs) && obs >= 1 && obs <= 360) {
+      const trueCourse = (obs + magVar + 360) % 360;
+      const out = destination(f.lat, f.lon, trueCourse, 40);
+      const recip = destination(f.lat, f.lon, (trueCourse + 180) % 360, 40);
+      // Solid on the FROM side (the radial itself), dashed on the reciprocal.
+      roseGroup.addLayer(
+        L.polyline(
+          [
+            [f.lat, f.lon],
+            [out.lat, out.lon],
+          ],
+          { color: '#0d8f4f', weight: 2, interactive: false }
+        )
+      );
+      roseGroup.addLayer(
+        L.polyline(
+          [
+            [f.lat, f.lon],
+            [recip.lat, recip.lon],
+          ],
+          { color: '#0d8f4f', weight: 1.4, dashArray: '7 7', interactive: false }
+        )
+      );
+      const lp = destination(f.lat, f.lon, trueCourse, 11);
+      roseGroup.addLayer(
+        L.marker([lp.lat, lp.lon], {
+          icon: L.divIcon({
+            className: 'navaid-icon',
+            html: `<span class="rose-label obs-label">R-${fmt3(obs)}</span>`,
+            iconSize: [0, 0],
+          }),
+          keyboard: false,
+          interactive: false,
+        })
+      );
+    }
+  }
+  document.getElementById('fix-obs').addEventListener('input', drawRose);
 
   function updateFixInfo(state) {
     if (!selectedFix || !state) return;
@@ -313,6 +583,28 @@
     return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
   }
 
+  /** Destination point given start, true bearing (deg) and distance (NM). */
+  function destination(lat, lon, brgDeg, distNmVal) {
+    const R = 3440.065;
+    const delta = distNmVal / R;
+    const theta = (brgDeg * Math.PI) / 180;
+    const p1 = (lat * Math.PI) / 180;
+    const l1 = (lon * Math.PI) / 180;
+    const p2 = Math.asin(
+      Math.sin(p1) * Math.cos(delta) + Math.cos(p1) * Math.sin(delta) * Math.cos(theta)
+    );
+    const l2 =
+      l1 +
+      Math.atan2(
+        Math.sin(theta) * Math.sin(delta) * Math.cos(p1),
+        Math.cos(delta) - Math.sin(p1) * Math.sin(p2)
+      );
+    return {
+      lat: (p2 * 180) / Math.PI,
+      lon: ((((l2 * 180) / Math.PI + 540) % 360) - 180),
+    };
+  }
+
   // ------------------------------------------------------------------
   // WebSocket client
   // ------------------------------------------------------------------
@@ -337,6 +629,12 @@
         case 'facilities':
           facilityStore[msg.facilityType] = msg.items;
           renderFacilities(msg.facilityType);
+          if (msg.facilityType === 'VOR') renderIls();
+          if (msg.facilityType === 'AIRPORT') maybeRequestRunways();
+          break;
+        case 'runways':
+          runwayStore.set(msg.icao, msg.runways || []);
+          renderRunways();
           break;
         case 'status':
           setStatus(msg);
@@ -360,7 +658,7 @@
     if (lastState) updateAircraft(lastState);
     else ringGroup.clearLayers();
   });
-  for (const id of Object.values(layerToggle).concat(['lyr-labels'])) {
+  for (const id of Object.values(layerToggle).concat(['lyr-labels', 'lyr-ils'])) {
     document.getElementById(id).addEventListener('change', renderAllFacilities);
   }
   document.getElementById('btn-clear').addEventListener('click', () => {

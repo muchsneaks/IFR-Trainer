@@ -7,6 +7,7 @@
  *   'status'     { connected, mode: 'sim', detail }
  *   'state'      aircraft state (lat/lon/alt/heading/speeds)
  *   'facilities' { facilityType, items } — from the native MSFS facility DB
+ *   'runways'    { icao, runways } — airport runway layout (facility data)
  */
 
 const { EventEmitter } = require('events');
@@ -15,8 +16,13 @@ const RECONNECT_DELAY_MS = 5000;
 
 // Data definition / request ids
 const DEF_AIRCRAFT = 1;
+const DEF_RUNWAYS = 2;
 const REQ_AIRCRAFT = 1;
 const REQ_FACILITY_BASE = 100; // + FacilityListType
+const REQ_RUNWAY_BASE = 1000; // + incrementing counter
+
+// Runway designator suffixes (SDK: PRIMARY/SECONDARY_DESIGNATOR values)
+const RUNWAY_DESIGNATORS = ['', 'L', 'R', 'C', 'W', 'A', 'B'];
 
 class SimSource extends EventEmitter {
   constructor() {
@@ -25,6 +31,9 @@ class SimSource extends EventEmitter {
     this.connected = false;
     this.stopped = false;
     this.lib = null; // lazily required so demo mode never needs the module
+    this._runwayReqSeq = 0;
+    this._runwayRequests = new Map(); // requestId -> { icao, runways }
+    this._runwayCache = new Map(); // icao -> runways[]
   }
 
   start() {
@@ -216,6 +225,92 @@ class SimSource extends EventEmitter {
         }
       });
     }
+
+    // --- Airport runway layouts (facility data API) ----------------------
+    // One shared definition; per-airport requests are made on demand from
+    // the map (when zoomed in on an airport).
+    try {
+      const defFields = [
+        'OPEN AIRPORT',
+        'LATITUDE',
+        'LONGITUDE',
+        'OPEN RUNWAY',
+        'LATITUDE',
+        'LONGITUDE',
+        'ALTITUDE',
+        'HEADING',
+        'LENGTH',
+        'WIDTH',
+        'PRIMARY_NUMBER',
+        'PRIMARY_DESIGNATOR',
+        'SECONDARY_NUMBER',
+        'SECONDARY_DESIGNATOR',
+        'CLOSE RUNWAY',
+        'CLOSE AIRPORT',
+      ];
+      for (const field of defFields) handle.addToFacilityDefinition(DEF_RUNWAYS, field);
+
+      handle.on('facilityData', (recv) => {
+        const req = this._runwayRequests.get(recv.userRequestId);
+        if (!req) return;
+        try {
+          if (recv.type === this.lib.FacilityDataType.RUNWAY) {
+            const d = recv.data;
+            const rwy = {
+              lat: d.readFloat64(),
+              lon: d.readFloat64(),
+              alt: d.readFloat64(),
+              heading: d.readFloat32(),
+              length: d.readFloat32(), // meters
+              width: d.readFloat32(), // meters
+            };
+            const primNum = d.readInt32();
+            const primDes = d.readInt32();
+            const secNum = d.readInt32();
+            const secDes = d.readInt32();
+            rwy.name = `${formatRunwayEnd(primNum, primDes)}/${formatRunwayEnd(secNum, secDes)}`;
+            if (Number.isFinite(rwy.lat) && Number.isFinite(rwy.lon) && rwy.length > 0) {
+              req.runways.push(rwy);
+            }
+          }
+        } catch (err) {
+          console.warn('[simconnect] runway parse error:', err.message);
+        }
+      });
+
+      handle.on('facilityDataEnd', (recv) => {
+        const req = this._runwayRequests.get(recv.userRequestId);
+        if (!req) return;
+        this._runwayRequests.delete(recv.userRequestId);
+        this._runwayCache.set(req.icao, req.runways);
+        this.emit('runways', { icao: req.icao, runways: req.runways });
+      });
+    } catch (err) {
+      console.warn('[simconnect] runway facility definition failed:', err.message);
+    }
+  }
+
+  /** Request the runway layout for an airport (cached). */
+  requestRunways(icao) {
+    icao = String(icao || '').trim().toUpperCase();
+    if (!icao) return;
+    if (this._runwayCache.has(icao)) {
+      this.emit('runways', { icao, runways: this._runwayCache.get(icao) });
+      return;
+    }
+    if (!this.connected || !this.handle) return;
+    // Already in flight?
+    for (const req of this._runwayRequests.values()) {
+      if (req.icao === icao) return;
+    }
+    const reqId = REQ_RUNWAY_BASE + (this._runwayReqSeq = (this._runwayReqSeq + 1) % 5000);
+    this._runwayRequests.set(reqId, { icao, runways: [] });
+    try {
+      this.handle.requestFacilityData(DEF_RUNWAYS, reqId, icao);
+    } catch (err) {
+      this._runwayRequests.delete(reqId);
+      console.warn(`[simconnect] runway request ${icao} failed:`, err.message);
+    }
   }
 
   _normalizeFacility(f, typeName) {
@@ -235,10 +330,19 @@ class SimSource extends EventEmitter {
       item.hasDme = (f.flags & 0x8) !== 0; // HAS_DME
       item.hasNav = (f.flags & 0x1) !== 0; // HAS_NAV_SIGNAL
       item.isLoc = (f.flags & 0x2) !== 0; // HAS_LOCALIZER
+      // Localizer front course (drawn as an ILS feather on the map).
+      if (item.isLoc && typeof f.localizer === 'number' && Number.isFinite(f.localizer)) {
+        item.locCourse = Math.round(f.localizer * 10) / 10;
+      }
     }
     if (typeof f.magVar === 'number') item.magVar = f.magVar;
     return item;
   }
+}
+
+function formatRunwayEnd(number, designator) {
+  if (!Number.isFinite(number) || number < 1 || number > 36) return '?';
+  return String(number).padStart(2, '0') + (RUNWAY_DESIGNATORS[designator] || '');
 }
 
 /**

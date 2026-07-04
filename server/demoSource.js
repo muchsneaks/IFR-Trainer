@@ -64,10 +64,30 @@ class DemoSource extends EventEmitter {
         hasDme: f.hasDme,
         ...extra,
       }));
-    this.emit('facilities', { facilityType: 'VOR', items: map(navdata.VORS, 'VOR') });
+    // ILS localizers arrive in the VOR list in the real sim (HAS_LOCALIZER flag).
+    const ils = navdata.ILS.map((f) => ({
+      ident: f.ident,
+      region: 'ED',
+      lat: f.lat,
+      lon: f.lon,
+      alt: null,
+      type: 'VOR',
+      name: f.name,
+      freq: f.freq,
+      isLoc: true,
+      locCourse: f.course,
+      magVar: 3.0,
+    }));
+    this.emit('facilities', { facilityType: 'VOR', items: map(navdata.VORS, 'VOR').concat(ils) });
     this.emit('facilities', { facilityType: 'NDB', items: map(navdata.NDBS, 'NDB') });
     this.emit('facilities', { facilityType: 'WAYPOINT', items: map(navdata.WAYPOINTS, 'WAYPOINT') });
     this.emit('facilities', { facilityType: 'AIRPORT', items: map(navdata.AIRPORTS, 'AIRPORT') });
+  }
+
+  /** Demo runway layouts (approximate EDDF geometry). */
+  requestRunways(icao) {
+    const runways = navdata.RUNWAYS[String(icao || '').trim().toUpperCase()];
+    this.emit('runways', { icao: String(icao).trim().toUpperCase(), runways: runways || [] });
   }
 
   _tick() {

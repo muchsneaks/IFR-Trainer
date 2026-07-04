@@ -43,9 +43,18 @@ and follow [Show the map inside MSFS](#show-the-map-inside-msfs-toolbar-panel).
   facility database as you fly
 - **IFR chart symbology** — VOR hexagon (boxed when DME), dotted NDB circle,
   waypoint triangles, airport circles, chart-style labels with frequencies
+- **Real runway layouts & ILS feathers** — zoom into an airport and the actual
+  runways (true position, heading, length, designators) are drawn from the
+  sim's facility data; ILS localizers appear as classic chart feathers with
+  ident, frequency and front course
 - **Trainer readout** — click any fix to get a live
   **bearing / radial / DME distance** from your aircraft (great for VOR radial
   interception and holding practice)
+- **VOR compass rose + OBS** — select a VOR and a magnetic compass rose is
+  drawn around it; dial an OBS course to draw the radial across the map, then
+  intercept and track it raw data
+- **First-run tour** — a short, skippable onboarding explains the app once;
+  reopen it anytime with the **?** button
 - **Flight data bar** — ground speed, altitude, magnetic heading, true track,
   vertical speed
 - **Runs inside MSFS** as a toolbar panel, or as a standalone desktop window

@@ -129,6 +129,12 @@ function createIfrServer(opts = {}) {
     });
   });
 
+  const runways = new Map(); // icao -> runways[]
+  source.on('runways', ({ icao, runways: list }) => {
+    runways.set(icao, list);
+    broadcast({ type: 'runways', icao, runways: list });
+  });
+
   // --- Navigraph ------------------------------------------------------------
   const navigraph = new NavigraphClient({ log });
 
@@ -316,6 +322,9 @@ ${coords}
       }
     }
     if (lastState) ws.send(JSON.stringify({ type: 'state', state: lastState, trackPoint: null }));
+    for (const [icao, list] of runways) {
+      ws.send(JSON.stringify({ type: 'runways', icao, runways: list }));
+    }
 
     ws.on('message', (raw) => {
       let msg;
@@ -327,6 +336,16 @@ ${coords}
       if (msg.type === 'clearTrack') {
         track.length = 0;
         broadcast({ type: 'track', points: [] });
+      }
+      if (msg.type === 'getRunways' && typeof source.requestRunways === 'function') {
+        const icao = String(msg.icao || '').trim().toUpperCase();
+        if (/^[A-Z0-9]{3,4}$/.test(icao)) {
+          if (runways.has(icao)) {
+            ws.send(JSON.stringify({ type: 'runways', icao, runways: runways.get(icao) }));
+          } else {
+            source.requestRunways(icao);
+          }
+        }
       }
     });
   });

@@ -39,4 +39,25 @@ const AIRPORTS = [
   { ident: 'ETOU', name: 'Wiesbaden AAF', lat: 50.0498, lon: 8.3254, alt: 461 },
 ];
 
-module.exports = { VORS, NDBS, WAYPOINTS, AIRPORTS };
+// ILS localizers (subset). In the live sim these come from the VOR facility
+// list with the HAS_LOCALIZER flag; course in degrees magnetic.
+const ILS = [
+  { ident: 'IFNW', name: 'ILS 07C', lat: 50.0345, lon: 8.5862, freq: 110.55, course: 69 },
+  { ident: 'IFWC', name: 'ILS 25C', lat: 50.0318, lon: 8.5228, freq: 111.15, course: 249 },
+];
+
+// Approximate runway layouts for demo mode (center lat/lon, true heading,
+// length/width in meters).
+const RUNWAYS = {
+  EDDF: [
+    { lat: 50.0331, lon: 8.5546, alt: 111, heading: 69, length: 4000, width: 60, name: '07C/25C' },
+    { lat: 50.0275, lon: 8.5602, alt: 111, heading: 69, length: 4000, width: 45, name: '07R/25L' },
+    { lat: 50.0377, lon: 8.5262, alt: 111, heading: 69, length: 2800, width: 45, name: '07L/25R' },
+    { lat: 49.9988, lon: 8.5259, alt: 111, heading: 180, length: 4000, width: 45, name: '18/36' },
+  ],
+  EDFE: [
+    { lat: 49.9597, lon: 8.6458, alt: 117, heading: 87, length: 1400, width: 25, name: '08/26' },
+  ],
+};
+
+module.exports = { VORS, NDBS, WAYPOINTS, AIRPORTS, ILS, RUNWAYS };
