@@ -19,6 +19,7 @@ const fs = require('fs');
 const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const { distanceNm } = require('./geo');
+const { NavigraphClient } = require('./navigraph');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const LEAFLET_DIR = path.join(__dirname, '..', 'node_modules', 'leaflet', 'dist');
@@ -128,9 +129,80 @@ function createIfrServer(opts = {}) {
     });
   });
 
+  // --- Navigraph ------------------------------------------------------------
+  const navigraph = new NavigraphClient({ log });
+
+  function sendJson(res, code, obj) {
+    res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify(obj));
+  }
+
+  async function readJsonBody(req) {
+    let body = '';
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > 64 * 1024) throw new Error('body too large');
+    }
+    return body ? JSON.parse(body) : {};
+  }
+
+  async function handleNavigraph(req, res, url) {
+    const p = url.pathname;
+    try {
+      if (p === '/api/navigraph/status' && req.method === 'GET') {
+        return sendJson(res, 200, navigraph.status());
+      }
+      if (p === '/api/navigraph/credentials' && req.method === 'POST') {
+        const { clientId, clientSecret } = await readJsonBody(req);
+        navigraph.setCredentials(clientId, clientSecret);
+        return sendJson(res, 200, navigraph.status());
+      }
+      if (p === '/api/navigraph/login' && req.method === 'POST') {
+        const login = await navigraph.startLogin();
+        return sendJson(res, 200, { login });
+      }
+      if (p === '/api/navigraph/login/cancel' && req.method === 'POST') {
+        navigraph.cancelLogin();
+        return sendJson(res, 200, navigraph.status());
+      }
+      if (p === '/api/navigraph/logout' && req.method === 'POST') {
+        await navigraph.logout();
+        return sendJson(res, 200, navigraph.status());
+      }
+      const chartsMatch = p.match(/^\/api\/navigraph\/charts\/([A-Za-z0-9]{3,4})$/);
+      if (chartsMatch && req.method === 'GET') {
+        const data = await navigraph.chartsIndex(chartsMatch[1]);
+        return sendJson(res, 200, data);
+      }
+      if (p === '/api/navigraph/chart-image' && req.method === 'GET') {
+        const { buffer, contentType } = await navigraph.chartImage(url.searchParams.get('url') || '');
+        res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'private, max-age=3600' });
+        return res.end(buffer);
+      }
+      const tileMatch = p.match(
+        /^\/api\/navigraph\/tiles\/([a-z.]+)\/(day|night)\/(\d+)\/(\d+)\/(\d+)\.png$/
+      );
+      if (tileMatch && req.method === 'GET') {
+        const [, source, theme, z, x, y] = tileMatch;
+        const retina = url.searchParams.get('retina') === '1';
+        const entry = await navigraph.tile(source, theme, z, x, y, retina);
+        res.writeHead(200, { 'Content-Type': entry.type, 'Cache-Control': 'private, max-age=1800' });
+        return res.end(entry.buf);
+      }
+      sendJson(res, 404, { error: 'not found' });
+    } catch (err) {
+      sendJson(res, err.statusCode || 500, { error: err.message });
+    }
+  }
+
   // --- HTTP ---------------------------------------------------------------
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
+
+    if (url.pathname.startsWith('/api/navigraph/')) {
+      handleNavigraph(req, res, url);
+      return;
+    }
 
     if (url.pathname === '/track.geojson') {
       res.writeHead(200, {

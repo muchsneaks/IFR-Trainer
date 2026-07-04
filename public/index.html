@@ -62,14 +62,90 @@
         <span class="label">DIST</span><span id="fix-dist" class="value">--.- NM</span>
         <span class="label">Freq</span><span id="fix-freq" class="value">—</span>
       </div>
-      <button id="btn-fix-clear">Deselect</button>
+      <div class="row">
+        <button id="btn-fix-clear">Deselect</button>
+        <button id="btn-fix-charts" class="hidden">Charts</button>
+      </div>
+    </section>
+    <section id="ng-section">
+      <h3>Navigraph</h3>
+
+      <!-- not configured: developer credentials -->
+      <div id="ng-setup" class="hidden">
+        <div class="muted">One-time setup: enter your Navigraph API
+          credentials (free at <a href="https://developers.navigraph.com" target="_blank" rel="noopener">developers.navigraph.com</a>).</div>
+        <input id="ng-client-id" type="text" placeholder="Client ID" autocomplete="off">
+        <input id="ng-client-secret" type="password" placeholder="Client secret" autocomplete="off">
+        <button id="ng-save-creds">Save</button>
+      </div>
+
+      <!-- configured, logged out -->
+      <div id="ng-loggedout" class="hidden">
+        <button id="ng-login" class="ng-cta">Connect Navigraph account</button>
+        <div id="ng-logincode" class="hidden">
+          <div class="muted">Confirm in the browser window. Code:</div>
+          <div id="ng-code" class="ng-code">----</div>
+          <a id="ng-verify-link" href="#" target="_blank" rel="noopener">Open Navigraph login</a>
+          <button id="ng-cancel-login">Cancel</button>
+        </div>
+        <div id="ng-login-error" class="ng-error hidden"></div>
+      </div>
+
+      <!-- logged in -->
+      <div id="ng-loggedin" class="hidden">
+        <div id="ng-user" class="ng-user">✓ Signed in</div>
+        <label>Chart theme
+          <select id="ng-theme">
+            <option value="day" selected>Day</option>
+            <option value="night">Night</option>
+          </select>
+        </label>
+        <div class="row">
+          <button id="ng-open-charts">Airport charts…</button>
+          <button id="ng-logout">Sign out</button>
+        </div>
+        <div class="muted">Enroute map: pick “Navigraph IFR” under Base map.</div>
+      </div>
     </section>
   </aside>
+
+  <!-- Charts drawer (SID/STAR/APP lists) -->
+  <aside id="ng-drawer" class="hidden">
+    <header>
+      <input id="ng-icao" type="text" placeholder="ICAO" maxlength="4" spellcheck="false">
+      <button id="ng-icao-load" title="Load charts">Load</button>
+      <button id="ng-drawer-close" title="Close">✕</button>
+    </header>
+    <nav id="ng-tabs"></nav>
+    <div id="ng-list-wrap">
+      <ul id="ng-chart-list"></ul>
+      <div id="ng-drawer-msg" class="muted"></div>
+    </div>
+  </aside>
+
+  <!-- Active chart overlay controls -->
+  <div id="ng-chartbar" class="hidden">
+    <span id="ng-chart-title" title=""></span>
+    <input id="ng-opacity" type="range" min="20" max="100" value="85" title="Chart opacity">
+    <button id="ng-fit" title="Zoom to chart">⌖</button>
+    <button id="ng-eye" title="Show/hide chart">👁</button>
+    <button id="ng-chart-remove" title="Remove chart">✕</button>
+  </div>
+
+  <!-- Viewer for non-georeferenced charts -->
+  <div id="ng-viewer" class="hidden">
+    <header>
+      <span id="ng-viewer-title"></span>
+      <button id="ng-viewer-close">✕</button>
+    </header>
+    <div id="ng-viewer-body"><img id="ng-viewer-img" alt="chart"></div>
+  </div>
 
   <button id="panel-toggle" title="Toggle panel">☰</button>
 
   <script src="vendor/leaflet/leaflet.js"></script>
   <script src="js/symbols.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/navigraph.js"></script>
 </body>
 </html>

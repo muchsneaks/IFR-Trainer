@@ -49,6 +49,10 @@ and follow [Show the map inside MSFS](#show-the-map-inside-msfs-toolbar-panel).
 - **Flight data bar** — ground speed, altitude, magnetic heading, true track,
   vertical speed
 - **Runs inside MSFS** as a toolbar panel, or as a standalone desktop window
+- **Navigraph integration (optional)** — sign in with your Navigraph account
+  to get the **Navigraph IFR enroute map (High/Low)** as a base layer and
+  **approach / SID / STAR / airport charts as georeferenced overlays**
+  rendered *underneath* your live flight track
 - **Demo mode** to explore the app without the simulator running
 
 ---
@@ -190,6 +194,40 @@ msfs-ifr-trainer/
     joybuy-ifr-trainer/   ← copy this into the MSFS Community folder
     build-layout.js       regenerates the package layout.json
 ```
+
+## Navigraph charts & enroute map (optional)
+
+With a Navigraph account you can enrich the map with real Jeppesen-based
+charts. Everything runs through the local server, so it also works in the
+in-sim MSFS panel.
+
+**One-time setup (app operator):** the integration needs Navigraph API
+credentials. Request them for free at
+[developers.navigraph.com](https://developers.navigraph.com) (scopes
+`charts tiles offline_access`, Device Authorization flow), then enter the
+Client ID/Secret once under **Navigraph** in the map side panel (or set the
+`NAVIGRAPH_CLIENT_ID` / `NAVIGRAPH_CLIENT_SECRET` environment variables).
+
+**Sign in (every user):** side panel → **Navigraph → Connect Navigraph
+account**. A browser window opens, you confirm the shown code with your
+Navigraph login — done. The session is stored locally (`data/`) and survives
+restarts. Chart access requires a **Navigraph Ultimate** subscription; the
+enroute map requires any charts-capable subscription.
+
+**What you get:**
+
+- **Base map → Navigraph IFR High / IFR Low** — the official enroute chart as
+  the map background (day/night theme switchable), with your track on top.
+- **Airport charts…** (or select an airport on the map → **Charts**) — a
+  drawer lists Approach / STAR / SID / Airport / Reference charts.
+  Georeferenced charts (🗺) are drawn **on the map, under your flight track**,
+  with an opacity slider, show/hide toggle and zoom-to-chart — ideal to fly a
+  procedure and compare your actual track against the published one.
+  Non-georeferenced charts (📄) open in a side viewer for briefing.
+
+> Charts are streamed live from Navigraph per their developer terms — nothing
+> is redistributed with this app. For simulation use only, not for real-world
+> navigation.
 
 ## Training ideas
 

@@ -46,6 +46,7 @@
       activeBase.addTo(map);
     }
     graticule.redraw();
+    if (window.NgIntegration) window.NgIntegration.onBaseChanged(name);
   }
 
   // Simple lat/lon graticule for the plain-chart background.
@@ -221,6 +222,7 @@
 
   function selectFix(f) {
     selectedFix = f;
+    if (window.NgIntegration) window.NgIntegration.onFixSelected(f);
     document.getElementById('fixinfo').classList.remove('hidden');
     document.getElementById('panel').classList.remove('hidden');
     const freq = f.freq
@@ -369,6 +371,15 @@
   document.getElementById('panel-toggle').addEventListener('click', () => {
     document.getElementById('panel').classList.toggle('hidden');
   });
+
+  // Minimal public surface for optional integrations (Navigraph module).
+  window.IfrApp = {
+    map,
+    baseLayers,
+    setBase,
+    getState: () => lastState,
+    getSelectedFix: () => selectedFix,
+  };
 
   setBase('chart');
 
