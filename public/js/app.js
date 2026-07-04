@@ -402,6 +402,16 @@
     document.getElementById('fix-obs-row').classList.toggle('hidden', !isVor);
     drawRose();
     updateFixInfo(lastState);
+    updateCdi();
+
+    // Suggest the current inbound course for a hold at this fix.
+    const holdCrs = document.getElementById('hold-crs');
+    if (!hold && lastState) {
+      const brgTrue = bearing(lastState.lat, lastState.lon, f.lat, f.lon);
+      const magVar = Number.isFinite(lastState.magVar) ? lastState.magVar : 0;
+      holdCrs.value = ((Math.round(brgTrue - magVar) + 359) % 360) + 1;
+    }
+    updateHoldUi();
   }
 
   function clearFix() {
@@ -409,6 +419,8 @@
     document.getElementById('fixinfo').classList.add('hidden');
     fixLine.setLatLngs([]);
     roseGroup.clearLayers();
+    updateCdi();
+    updateHoldUi();
   }
   document.getElementById('btn-fix-clear').addEventListener('click', clearFix);
 
@@ -511,7 +523,10 @@
       );
     }
   }
-  document.getElementById('fix-obs').addEventListener('input', drawRose);
+  document.getElementById('fix-obs').addEventListener('input', () => {
+    drawRose();
+    updateCdi();
+  });
 
   function updateFixInfo(state) {
     if (!selectedFix || !state) return;
@@ -526,7 +541,257 @@
       [state.lat, state.lon],
       [selectedFix.lat, selectedFix.lon],
     ]);
+    updateCdi();
   }
+
+  // ------------------------------------------------------------------
+  // CDI — course deviation indicator for the selected VOR + OBS course.
+  // Standard VOR sensitivity: 2° per dot, 10° full scale.
+  // ------------------------------------------------------------------
+
+  const cdiEl = document.getElementById('cdi');
+
+  /** Signed angular difference a − b, wrapped to [−180, 180). */
+  function angleDiff(a, b) {
+    return ((a - b + 540) % 360) - 180;
+  }
+
+  function updateCdi() {
+    const f = selectedFix;
+    const obs = Number(document.getElementById('fix-obs').value);
+    const usable =
+      f && f.type === 'VOR' && !f.isLoc && lastState &&
+      Number.isFinite(obs) && obs >= 1 && obs <= 360;
+    cdiEl.classList.toggle('hidden', !usable);
+    if (!usable) return;
+
+    const magVar = Number.isFinite(lastState.magVar) ? lastState.magVar : 0;
+    const radialTrue = bearing(f.lat, f.lon, lastState.lat, lastState.lon);
+    const radialMag = (radialTrue - magVar + 360) % 360;
+    const dev = angleDiff(radialMag, obs);
+    const isFrom = Math.abs(dev) <= 90;
+    // Needle deflection in degrees, positive = course line right of aircraft.
+    const needle = isFrom ? -dev : angleDiff(dev, 180);
+    const clamped = Math.max(-10, Math.min(10, needle));
+
+    const cx = 110;
+    const cy = 26;
+    const full = 90; // px at 10° deflection
+    let dots = '';
+    for (let k = 1; k <= 5; k++) {
+      for (const s of [-1, 1]) {
+        dots += `<circle cx="${cx + (s * k * full) / 5}" cy="${cy}" r="2.6" fill="none" stroke="#5b6b85" stroke-width="1.2"/>`;
+      }
+    }
+    const nx = cx + (clamped / 10) * full;
+    const flag = isFrom
+      ? `<polygon points="${cx + 23},${cy + 8} ${cx + 31},${cy + 8} ${cx + 27},${cy + 16}" fill="#e2eaf4"/>`
+      : `<polygon points="${cx + 23},${cy - 8} ${cx + 31},${cy - 8} ${cx + 27},${cy - 16}" fill="#e2eaf4"/>`;
+    cdiEl.innerHTML = `
+      <svg viewBox="0 0 220 52" role="img" aria-label="Course deviation indicator">
+        ${dots}
+        <circle cx="${cx}" cy="${cy}" r="4.5" fill="none" stroke="#5b6b85" stroke-width="1.2"/>
+        ${flag}
+        <line x1="${nx}" y1="6" x2="${nx}" y2="46" stroke="#45c6ff" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div class="cdi-readout">
+        <span>CRS <b>${fmt3(obs)}°</b></span>
+        <span><b>${Math.abs(needle) > 10 ? '>10' : Math.abs(needle).toFixed(1)}°</b> ${needle >= 0 ? 'R' : 'L'}</span>
+        <span><b>${isFrom ? 'FROM ▽' : 'TO △'}</b></span>
+      </div>`;
+  }
+
+  // ------------------------------------------------------------------
+  // Holding-pattern overlay — racetrack template at the selected fix.
+  // Leg length and turn radius are computed from the ground speed when
+  // the hold is drawn (standard-rate turns, 360° in 2 minutes).
+  // ------------------------------------------------------------------
+
+  const holdGroup = L.layerGroup().addTo(map);
+  let hold = null; // { fix, crs, turn, legMin, gs }
+
+  function updateHoldUi() {
+    const form = document.getElementById('hold-form');
+    const hint = document.getElementById('hold-hint');
+    const btn = document.getElementById('btn-hold-toggle');
+    const show = !!selectedFix || !!hold;
+    form.classList.toggle('hidden', !show);
+    hint.classList.toggle('hidden', show);
+    if (!show) return;
+    if (hold) {
+      btn.textContent = `Remove hold at ${hold.fix.ident}`;
+      btn.classList.remove('primary');
+      btn.classList.add('danger');
+    } else {
+      btn.textContent = selectedFix ? `Draw hold at ${selectedFix.ident}` : 'Draw hold';
+      btn.classList.add('primary');
+      btn.classList.remove('danger');
+    }
+  }
+
+  function drawHold() {
+    holdGroup.clearLayers();
+    const info = document.getElementById('hold-info');
+    if (!hold) {
+      info.textContent = '';
+      return;
+    }
+    const f = hold.fix;
+    const magVar = stationMagVar(f);
+    const c = ((hold.crs + magVar) % 360 + 360) % 360; // true inbound course
+    const legNm = (hold.legMin * hold.gs) / 60;
+    const r = hold.gs / 188.5; // std-rate turn radius (NM)
+    const dir = hold.turn === 'L' ? -1 : 1;
+
+    const pts = [];
+    const entry = destination(f.lat, f.lon, (c + 180) % 360, legNm);
+    pts.push([entry.lat, entry.lon], [f.lat, f.lon]);
+    // 180° turn past the fix
+    const c1 = destination(f.lat, f.lon, (c + 90 * dir + 360) % 360, r);
+    for (let t = 10; t <= 180; t += 10) {
+      const p = destination(c1.lat, c1.lon, (c - 90 * dir + dir * t + 720) % 360, r);
+      pts.push([p.lat, p.lon]);
+    }
+    // outbound leg
+    const o1 = pts[pts.length - 1];
+    const o2 = destination(o1[0], o1[1], (c + 180) % 360, legNm);
+    pts.push([o2.lat, o2.lon]);
+    // 180° turn back onto the inbound leg
+    const c2 = destination(entry.lat, entry.lon, (c + 90 * dir + 360) % 360, r);
+    for (let t = 10; t <= 180; t += 10) {
+      const p = destination(c2.lat, c2.lon, (c + 90 * dir + dir * t + 720) % 360, r);
+      pts.push([p.lat, p.lon]);
+    }
+
+    holdGroup.addLayer(
+      L.polyline(pts, { color: '#e8730c', weight: 2.5, opacity: 0.9, interactive: false })
+    );
+    // Direction arrow on the inbound leg
+    const mid = destination(f.lat, f.lon, (c + 180) % 360, legNm / 2);
+    const arrowLen = Math.min(0.4, legNm * 0.12);
+    const tip = destination(mid.lat, mid.lon, c, arrowLen / 2);
+    const wingL = destination(tip.lat, tip.lon, (c + 150) % 360, arrowLen);
+    const wingR = destination(tip.lat, tip.lon, (c + 210) % 360, arrowLen);
+    holdGroup.addLayer(
+      L.polyline(
+        [
+          [wingL.lat, wingL.lon],
+          [tip.lat, tip.lon],
+          [wingR.lat, wingR.lon],
+        ],
+        { color: '#e8730c', weight: 2.5, opacity: 0.9, interactive: false }
+      )
+    );
+    // Label on the outbound side
+    const midOut = destination(o1[0], o1[1], (c + 180) % 360, legNm / 2);
+    const labelPos = destination(midOut.lat, midOut.lon, (c + 90 * dir + 360) % 360, r * 0.9);
+    holdGroup.addLayer(
+      L.marker([labelPos.lat, labelPos.lon], {
+        icon: L.divIcon({
+          className: 'navaid-icon',
+          html: `<span class="hold-label">HOLD ${hold.fix.ident} · INBD ${fmt3(hold.crs)}° · ${hold.turn} TURNS</span>`,
+          iconSize: [0, 0],
+        }),
+        keyboard: false,
+        interactive: false,
+      })
+    );
+
+    info.innerHTML =
+      `<b>${hold.legMin} min</b> legs ≈ ${legNm.toFixed(1)} NM at ${Math.round(hold.gs)} kt GS, ` +
+      `std-rate turns. Fly it, then compare your track.`;
+  }
+
+  function readHoldInputs(fix) {
+    const crs = Number(document.getElementById('hold-crs').value);
+    if (!Number.isFinite(crs) || crs < 1 || crs > 360) return null;
+    return {
+      fix,
+      crs: Math.round(crs),
+      turn: document.getElementById('hold-turn').value === 'L' ? 'L' : 'R',
+      legMin: Number(document.getElementById('hold-leg').value) || 1,
+      gs: lastState && lastState.gs > 40 ? lastState.gs : 100,
+    };
+  }
+
+  document.getElementById('btn-hold-toggle').addEventListener('click', () => {
+    if (hold) {
+      hold = null;
+    } else if (selectedFix) {
+      hold = readHoldInputs(selectedFix);
+      if (!hold) {
+        document.getElementById('hold-crs').focus();
+        return;
+      }
+    }
+    drawHold();
+    updateHoldUi();
+  });
+  for (const id of ['hold-crs', 'hold-turn', 'hold-leg']) {
+    document.getElementById(id).addEventListener('change', () => {
+      if (!hold) return;
+      const next = readHoldInputs(hold.fix);
+      if (next) {
+        hold = next;
+        drawHold();
+      }
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // Leg timer (holds, procedure turns, timed approaches)
+  // Click or press T to start/stop, ⟲ or R to reset.
+  // ------------------------------------------------------------------
+
+  const timerEl = document.getElementById('timer');
+  const timerValueEl = document.getElementById('d-timer');
+  let timerStartedAt = null;
+  let timerAccum = 0; // seconds
+
+  function timerSeconds() {
+    return timerAccum + (timerStartedAt ? (Date.now() - timerStartedAt) / 1000 : 0);
+  }
+
+  function renderTimer() {
+    const s = Math.floor(timerSeconds());
+    timerValueEl.textContent =
+      `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  }
+
+  function timerToggle() {
+    if (timerStartedAt) {
+      timerAccum = timerSeconds();
+      timerStartedAt = null;
+      timerEl.classList.remove('running');
+    } else {
+      timerStartedAt = Date.now();
+      timerEl.classList.add('running');
+    }
+    renderTimer();
+  }
+
+  function timerReset() {
+    timerAccum = 0;
+    if (timerStartedAt) timerStartedAt = Date.now();
+    renderTimer();
+  }
+
+  setInterval(() => {
+    if (timerStartedAt) renderTimer();
+  }, 250);
+  timerEl.addEventListener('click', timerToggle);
+  document.getElementById('btn-timer-reset').addEventListener('click', (e) => {
+    e.stopPropagation();
+    timerReset();
+  });
+  document.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA')) return;
+    const onboard = document.getElementById('onboard');
+    if (onboard && !onboard.classList.contains('hidden')) return;
+    if (e.key === 't' || e.key === 'T') timerToggle();
+    if (e.key === 'r' || e.key === 'R') timerReset();
+  });
 
   // ------------------------------------------------------------------
   // Data bar
@@ -538,6 +803,7 @@
 
   function updateDataBar(state) {
     document.getElementById('d-gs').textContent = Math.round(state.gs);
+    document.getElementById('d-ias').textContent = Math.round(state.ias);
     document.getElementById('d-alt').textContent = Math.round(state.altMsl).toLocaleString('en-US');
     document.getElementById('d-hdg').textContent = fmt3(state.hdgMag);
     document.getElementById('d-trk').textContent = fmt3(state.trackTrue);

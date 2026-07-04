@@ -13,48 +13,28 @@
 
   <!-- Top status / data bar -->
   <header id="databar">
-    <div class="brand">IFR&nbsp;TRAINER</div>
-    <div class="datafield"><span class="label">GS</span><span id="d-gs" class="value">---</span><span class="unit">kt</span></div>
-    <div class="datafield"><span class="label">ALT</span><span id="d-alt" class="value">-----</span><span class="unit">ft</span></div>
-    <div class="datafield"><span class="label">HDG</span><span id="d-hdg" class="value">---</span><span class="unit">°M</span></div>
-    <div class="datafield"><span class="label">TRK</span><span id="d-trk" class="value">---</span><span class="unit">°T</span></div>
-    <div class="datafield"><span class="label">VS</span><span id="d-vs" class="value">----</span><span class="unit">fpm</span></div>
+    <div class="brand">
+      <svg viewBox="0 0 26 26" aria-hidden="true"><polygon points="13,4 20.8,8.5 20.8,17.5 13,22 5.2,17.5 5.2,8.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="13" cy="13" r="2" fill="currentColor"/></svg>
+      <span>IFR&nbsp;TRAINER</span>
+    </div>
+    <div class="datafields">
+      <div class="datafield"><span class="label">GS</span><span id="d-gs" class="value">---</span><span class="unit">kt</span></div>
+      <div class="datafield"><span class="label">IAS</span><span id="d-ias" class="value">---</span><span class="unit">kt</span></div>
+      <div class="datafield"><span class="label">ALT</span><span id="d-alt" class="value">-----</span><span class="unit">ft</span></div>
+      <div class="datafield"><span class="label">HDG</span><span id="d-hdg" class="value">---</span><span class="unit">°M</span></div>
+      <div class="datafield"><span class="label">TRK</span><span id="d-trk" class="value">---</span><span class="unit">°T</span></div>
+      <div class="datafield"><span class="label">VS</span><span id="d-vs" class="value">----</span><span class="unit">fpm</span></div>
+      <div class="datafield timer" id="timer" title="Leg timer — click to start/stop (T). Reset with the ⟲ button (R).">
+        <span class="label">TMR</span><span id="d-timer" class="value">00:00</span>
+        <button id="btn-timer-reset" title="Reset timer (R)">⟲</button>
+      </div>
+    </div>
     <button id="btn-help" title="Show the quick tour">?</button>
     <div id="conn" class="conn disconnected" title="">OFFLINE</div>
   </header>
 
   <!-- Side control panel -->
   <aside id="panel">
-    <section>
-      <h3>Map</h3>
-      <label><input type="checkbox" id="opt-follow" checked> Follow aircraft</label>
-      <label><input type="checkbox" id="opt-rings" checked> Range rings</label>
-      <label>Base map
-        <select id="opt-base">
-          <option value="chart" selected>IFR chart (plain)</option>
-          <option value="dark">Dark tiles</option>
-          <option value="osm">OpenStreetMap</option>
-        </select>
-      </label>
-    </section>
-    <section>
-      <h3>Layers</h3>
-      <label><input type="checkbox" id="lyr-vor" checked> VOR</label>
-      <label><input type="checkbox" id="lyr-ndb" checked> NDB</label>
-      <label><input type="checkbox" id="lyr-wpt" checked> Waypoints</label>
-      <label><input type="checkbox" id="lyr-apt" checked> Airports &amp; runways</label>
-      <label><input type="checkbox" id="lyr-ils" checked> ILS feathers</label>
-      <label><input type="checkbox" id="lyr-labels" checked> Labels</label>
-    </section>
-    <section>
-      <h3>Flight track</h3>
-      <div class="row">
-        <button id="btn-clear">Clear</button>
-        <a class="button" href="/track.geojson" download>GeoJSON</a>
-        <a class="button" href="/track.kml" download>KML</a>
-      </div>
-      <div id="track-stats" class="muted">0 points · 0.0 NM</div>
-    </section>
     <section id="fixinfo" class="hidden">
       <h3>Selected fix</h3>
       <div id="fix-name" class="fix-name">—</div>
@@ -65,13 +45,76 @@
         <span class="label">Freq</span><span id="fix-freq" class="value">—</span>
       </div>
       <div id="fix-obs-row" class="obs-row hidden">
-        <span class="label">OBS / radial</span>
+        <span class="label">OBS course</span>
         <input id="fix-obs" type="number" min="1" max="360" step="1" placeholder="—">
       </div>
+      <div id="cdi" class="hidden" title="Course deviation indicator — 2° per dot (10° full scale)"></div>
       <div class="row">
         <button id="btn-fix-clear">Deselect</button>
         <button id="btn-fix-charts" class="hidden">Charts</button>
       </div>
+    </section>
+
+    <section id="training">
+      <h3>Training · Hold</h3>
+      <div id="hold-hint" class="muted">Click a fix on the map, then set up a holding pattern to fly against.</div>
+      <div id="hold-form" class="hidden">
+        <div class="hold-grid">
+          <label class="field"><span class="label">Inbound crs</span>
+            <input id="hold-crs" type="number" min="1" max="360" step="1" placeholder="°M">
+          </label>
+          <label class="field"><span class="label">Turns</span>
+            <select id="hold-turn">
+              <option value="R" selected>Right (std)</option>
+              <option value="L">Left</option>
+            </select>
+          </label>
+          <label class="field"><span class="label">Leg time</span>
+            <select id="hold-leg">
+              <option value="1" selected>1 min</option>
+              <option value="1.5">1.5 min</option>
+              <option value="2">2 min</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <button id="btn-hold-toggle" class="primary">Draw hold</button>
+        </div>
+        <div id="hold-info" class="muted"></div>
+      </div>
+    </section>
+
+    <section>
+      <h3>Map</h3>
+      <label class="switch"><input type="checkbox" id="opt-follow" checked><span class="slider"></span> Follow aircraft</label>
+      <label class="switch"><input type="checkbox" id="opt-rings" checked><span class="slider"></span> Range rings</label>
+      <label class="field">Base map
+        <select id="opt-base">
+          <option value="chart" selected>IFR chart (plain)</option>
+          <option value="dark">Dark tiles</option>
+          <option value="osm">OpenStreetMap</option>
+        </select>
+      </label>
+    </section>
+    <section>
+      <h3>Layers</h3>
+      <div class="layer-grid">
+        <label class="switch"><input type="checkbox" id="lyr-vor" checked><span class="slider"></span> VOR</label>
+        <label class="switch"><input type="checkbox" id="lyr-ndb" checked><span class="slider"></span> NDB</label>
+        <label class="switch"><input type="checkbox" id="lyr-wpt" checked><span class="slider"></span> Waypoints</label>
+        <label class="switch"><input type="checkbox" id="lyr-apt" checked><span class="slider"></span> Airports</label>
+        <label class="switch"><input type="checkbox" id="lyr-ils" checked><span class="slider"></span> ILS</label>
+        <label class="switch"><input type="checkbox" id="lyr-labels" checked><span class="slider"></span> Labels</label>
+      </div>
+    </section>
+    <section>
+      <h3>Flight track</h3>
+      <div class="row">
+        <button id="btn-clear">Clear</button>
+        <a class="button" href="/track.geojson" download>GeoJSON</a>
+        <a class="button" href="/track.kml" download>KML</a>
+      </div>
+      <div id="track-stats" class="muted">0 points · 0.0 NM</div>
     </section>
     <section id="ng-section">
       <h3>Navigraph</h3>
@@ -100,7 +143,7 @@
       <!-- logged in -->
       <div id="ng-loggedin" class="hidden">
         <div id="ng-user" class="ng-user">✓ Signed in</div>
-        <label>Chart theme
+        <label class="field">Chart theme
           <select id="ng-theme">
             <option value="day" selected>Day</option>
             <option value="night">Night</option>
