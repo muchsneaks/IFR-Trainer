@@ -50,13 +50,20 @@ and follow [Show the map inside MSFS](#show-the-map-inside-msfs-toolbar-panel).
 - **Trainer readout** — click any fix to get a live
   **bearing / radial / DME distance** from your aircraft (great for VOR radial
   interception and holding practice)
-- **VOR compass rose + OBS** — select a VOR and a magnetic compass rose is
-  drawn around it; dial an OBS course to draw the radial across the map, then
+- **VOR compass rose + OBS + CDI** — select a VOR and a magnetic compass rose
+  is drawn around it; dial an OBS course to draw the radial across the map
+  **and get a live CDI** (2° per dot, 10° full scale, TO/FROM flag) to
   intercept and track it raw data
+- **Holding pattern trainer** — pick any fix, set inbound course, turn
+  direction and leg time, and a **racetrack template** (sized for
+  standard-rate turns at your ground speed) is drawn on the chart to fly
+  against
+- **Leg timer** — a stopwatch in the data bar (click or `T` to start/stop,
+  `R` to reset) for hold legs, procedure turns and timed approaches
 - **First-run tour** — a short, skippable onboarding explains the app once;
   reopen it anytime with the **?** button
-- **Flight data bar** — ground speed, altitude, magnetic heading, true track,
-  vertical speed
+- **Flight data bar** — ground speed, indicated airspeed, altitude, magnetic
+  heading, true track, vertical speed
 - **Runs inside MSFS** as a toolbar panel, or as a standalone desktop window
 - **Navigraph integration (optional)** — sign in with your Navigraph account
   to get the **Navigraph IFR enroute map (High/Low)** as a base layer and
@@ -240,10 +247,11 @@ enroute map requires any charts-capable subscription.
 
 ## Training ideas
 
-- **VOR tracking**: click a VOR, then intercept and hold a specific radial —
-  the live `R-xxx` readout shows the radial you are currently on.
-- **Holding patterns**: fly a hold and check the shape of your track (wind
-  correction!) afterwards.
+- **VOR tracking**: click a VOR, dial an OBS course and center the CDI — the
+  live `R-xxx` readout shows the radial you are currently on.
+- **Holding patterns**: set up a hold at any fix (Training → Hold), fly it
+  with the leg timer, then compare your track against the orange racetrack
+  template (wind correction!).
 - **Procedure review**: export the track as KML after an approach and replay it
   in Google Earth in 3D.
 

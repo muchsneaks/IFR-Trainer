@@ -34,8 +34,20 @@
         'live from the native MSFS navdata around your aircraft.<br><br>' +
         '<b>Click any fix</b> to get live bearing / radial / distance to it. ' +
         'Select a <b>VOR</b> and you also get a compass rose — type an ' +
-        '<b>OBS course</b> to draw the radial on the map: perfect for raw-data ' +
-        'intercepts and tracking.',
+        '<b>OBS course</b> to draw the radial on the map and bring up a live ' +
+        '<b>CDI</b> (2° per dot, TO/FROM flag) for raw-data intercepts.',
+    },
+    {
+      icon: '⏱️',
+      title: 'Holds & timing — like an instructor set them up',
+      body:
+        'Under <b>Training → Hold</b>: pick a fix, set the inbound course, ' +
+        'turn direction and leg time, and a <b>racetrack template</b> is drawn ' +
+        'on the chart — sized for standard-rate turns at your ground speed. ' +
+        'Fly it, then compare your magenta track against it (wind correction!).' +
+        '<br><br>The <b>TMR</b> leg timer in the top bar starts/stops with a ' +
+        'click or <code>T</code>, resets with <code>R</code> — for hold legs, ' +
+        'procedure turns and timed approaches.',
     },
     {
       icon: '📈',
